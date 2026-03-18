@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LeNet · Neural Network Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#040d18;--panel:#060f1e;--border:#0e2035;
+  --accent:#00c8ff;--green:#00ff9d;--gold:#ffd166;
+  --text:#b8d4e8;--dim:#2e4d6a;
+  --label:#4a9cc0;       /* matches 3D layer label colour */
+  --glow-c:rgba(0,200,255,.5);
+  --sw:320px;
+}
+html,body{width:100%;height:100%;background:var(--bg);color:var(--text);
+  font-family:'Share Tech Mono',monospace;overflow:hidden;}
+
+/* ── 3D viewport ── */
+#viewport{position:fixed;left:0;top:0;width:calc(100vw - var(--sw));height:100vh;}
+#viewport canvas{display:block;}
+#viewport::after{content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.05) 3px,rgba(0,0,0,.05) 4px);
+  pointer-events:none;z-index:3;}
+
+/* ── HUD ── */
+#hud{position:fixed;left:18px;top:18px;z-index:10;display:flex;flex-direction:column;gap:4px;}
+.hud-line{font-size:10px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;}
+#fps{font-family:'Orbitron',sans-serif;font-size:10px;color:var(--accent);}
+
+#hint{position:fixed;bottom:80px;
+  left:calc((100vw - var(--sw))/2);transform:translateX(-50%);
+  font-size:10px;color:var(--dim);letter-spacing:3px;z-index:10;
+  text-align:center;pointer-events:none;transition:opacity .5s;}
+
+/* ── Layer collapse panel ── */
+#layer-panel{
+  position:fixed;bottom:16px;
+  left:calc((100vw - var(--sw))/2);transform:translateX(-50%);
+  z-index:20;display:flex;gap:8px;align-items:center;
+  background:rgba(4,13,24,.92);
+  border:1px solid rgba(74,156,192,.28);   /* much dimmer border */
+  padding:8px 14px;
+  backdrop-filter:blur(8px);
+  box-shadow:0 0 10px rgba(74,156,192,.08);
+}
+
+/* "LAYERS" header text */
+.lp-header{
+  font-size:9px;color:var(--label);letter-spacing:3px;
+  text-transform:uppercase;margin-right:6px;white-space:nowrap;
+  font-family:'Orbitron',sans-serif;font-weight:600;
+}
+
+/* individual collapse button */
+.cbtn{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  border:1px solid rgba(74,156,192,.45);  /* subtle label colour */
+  background:rgba(74,156,192,.06);
+  color:var(--label);                     /* matches label */
+  font-family:'Share Tech Mono',monospace;
+  font-size:9px;letter-spacing:1px;cursor:pointer;
+  padding:6px 10px;transition:all .2s;min-width:46px;
+  text-transform:uppercase;
+}
+.cbtn:hover{
+  border-color:var(--label);
+  background:rgba(74,156,192,.18);
+  box-shadow:0 0 10px rgba(74,156,192,.35);
+  color:#7ec8e3;
+}
+/* collapsed state — turns gold */
+.cbtn.collapsed{
+  border-color:var(--gold);
+  color:var(--gold);
+  background:rgba(255,209,102,.08);
+  box-shadow:0 0 8px rgba(255,209,102,.25);
+}
+.cbtn .cico{font-size:11px;line-height:1;transition:transform .2s;}
+.cbtn.collapsed .cico{color:var(--gold);}
+.cbtn .clyr{font-size:8px;opacity:.8;margin-top:1px;}
+
+/* ── Sidebar ── */
+#sidebar{position:fixed;right:0;top:0;width:var(--sw);height:100vh;
+  background:var(--panel);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;z-index:100;padding:20px 18px;gap:16px;overflow:hidden;}
+
+#logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:22px;
+  color:var(--accent);letter-spacing:3px;text-shadow:0 0 16px var(--glow-c);
+  border-bottom:1px solid var(--border);padding-bottom:14px;}
+#logo-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--dim);
+  display:block;font-weight:400;letter-spacing:1px;margin-top:3px;}
+
+.slabel{font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:2px;
+  display:block;margin-bottom:7px;}
+
+#draw-wrap{position:relative;width:284px;height:284px;border:1px solid var(--border);}
+#draw-wrap::before{content:'';position:absolute;inset:0;pointer-events:none;z-index:1;
+  background:repeating-linear-gradient(0deg,transparent,transparent 9px,rgba(0,200,255,.02) 9px,rgba(0,200,255,.02) 10px),
+             repeating-linear-gradient(90deg,transparent,transparent 9px,rgba(0,200,255,.02) 9px,rgba(0,200,255,.02) 10px);}
+#canvas{display:block;cursor:crosshair;}
+
+.brow{display:flex;gap:8px;margin-top:8px;}
+.btn{flex:1;padding:9px 0;border:1px solid var(--border);background:transparent;
+  color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;
+  letter-spacing:1px;cursor:pointer;text-transform:uppercase;
+  transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px;}
+.btn:hover{border-color:var(--accent);color:var(--accent);box-shadow:0 0 10px var(--glow-c);}
+.btn.pri{border-color:var(--accent);color:var(--accent);}
+.btn.pri:hover{background:rgba(0,200,255,.07);}
+.btn svg{width:13px;height:13px;flex-shrink:0;}
+
+#res-box{border:1px solid var(--border);padding:12px 14px;background:rgba(0,0,0,.2);}
+#res-text{font-family:'Orbitron',sans-serif;font-size:12px;color:var(--text);
+  margin-bottom:11px;min-height:20px;line-height:1.5;}
+#res-text .big{color:var(--green);font-size:24px;font-weight:900;
+  text-shadow:0 0 16px rgba(0,255,157,.6);}
+#dgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
+.dc{aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);font-family:'Orbitron',sans-serif;
+  font-size:14px;color:var(--dim);transition:all .3s;}
+.dc.on{border-color:var(--green);color:var(--green);
+  background:rgba(0,255,157,.06);box-shadow:0 0 10px rgba(0,255,157,.25);}
+
+#conf-wrap{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;}
+#cbars{display:flex;flex-direction:column;gap:5px;overflow:hidden;}
+.crow{display:flex;align-items:center;gap:7px;font-size:10px;}
+.clabel{width:10px;color:var(--dim);text-align:right;flex-shrink:0;}
+.ctrack{flex:1;height:5px;background:rgba(255,255,255,.04);border-radius:3px;overflow:hidden;}
+.cfill{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--green));
+  border-radius:3px;transition:width .55s cubic-bezier(.34,1.56,.64,1);}
+.crow.top .cfill{background:linear-gradient(90deg,var(--green),#7fff6a);}
+.cval{width:34px;text-align:right;font-size:9px;color:var(--dim);}
+
+#status{font-size:10px;color:var(--dim);letter-spacing:1px;
+  display:flex;align-items:center;gap:6px;margin-top:auto;padding-top:4px;}
+#sdot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+#sdot.idle{animation:blink 2.5s infinite;}
+#sdot.busy{background:var(--gold);box-shadow:0 0 6px var(--gold);animation:blink .6s infinite;}
+
+/* loading */
+#loader{position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:999;gap:12px;transition:opacity .7s;}
+#loader.gone{opacity:0;pointer-events:none;}
+.l-title{font-family:'Orbitron',sans-serif;font-size:32px;font-weight:900;
+  color:var(--accent);text-shadow:0 0 20px var(--glow-c);letter-spacing:5px;}
+.l-sub{font-size:11px;color:var(--dim);letter-spacing:3px;}
+.l-track{width:200px;height:1px;background:var(--border);margin-top:8px;}
+.l-bar{height:100%;width:0%;background:var(--accent);transition:width .4s;}
+</style>
+</head>
+<body>
+
+<div id="loader">
+  <div class="l-title">LeNet</div>
+  <div class="l-sub">Neural Network Visualizer</div>
+  <div class="l-track"><div class="l-bar" id="lbar"></div></div>
+  <div class="l-sub" id="lmsg" style="font-size:10px;margin-top:4px">Initializing…</div>
+</div>
+
+<div id="viewport"></div>
+
+<div id="hud">
+  <div class="hud-line">LeNet · MNIST · CNN</div>
+  <div id="fps">-- FPS</div>
+</div>
+
+<div id="hint">HOVER A LAYER FOR CONNECTIONS &nbsp;·&nbsp; DRAW &amp; PREDICT</div>
+
+<!-- Collapse panel — only the 4 fan layers that can actually collapse -->
+<div id="layer-panel">
+  <span class="lp-header">Layers</span>
+  <button class="cbtn" id="cbtn-1" onclick="toggleLayer(1)" title="Collapse CONV1">
+    <span class="cico">▼</span><span class="clyr">CONV1</span>
+  </button>
+  <button class="cbtn" id="cbtn-2" onclick="toggleLayer(2)" title="Collapse POOL1">
+    <span class="cico">▼</span><span class="clyr">POOL1</span>
+  </button>
+  <button class="cbtn" id="cbtn-3" onclick="toggleLayer(3)" title="Collapse CONV2">
+    <span class="cico">▼</span><span class="clyr">CONV2</span>
+  </button>
+  <button class="cbtn" id="cbtn-4" onclick="toggleLayer(4)" title="Collapse POOL2">
+    <span class="cico">▼</span><span class="clyr">POOL2</span>
+  </button>
+</div>
+
+<div id="sidebar">
+  <div id="logo">LeNet<span id="logo-sub">Convolutional Neural Network</span></div>
+
+  <div>
+    <span class="slabel">Input — draw a digit (0–9)</span>
+    <div id="draw-wrap"><canvas id="canvas" width="284" height="284"></canvas></div>
+    <div class="brow">
+      <button class="btn" onclick="clearCanvas()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.63"/></svg>Clear
+      </button>
+      <button class="btn pri" onclick="predict()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>Predict
+      </button>
+    </div>
+  </div>
+
+  <div id="res-box">
+    <span class="slabel">Result</span>
+    <div id="res-text">LeNet thinks you wrote a —</div>
+    <div id="dgrid">
+      <div class="dc" id="d0">0</div><div class="dc" id="d1">1</div>
+      <div class="dc" id="d2">2</div><div class="dc" id="d3">3</div>
+      <div class="dc" id="d4">4</div><div class="dc" id="d5">5</div>
+      <div class="dc" id="d6">6</div><div class="dc" id="d7">7</div>
+      <div class="dc" id="d8">8</div><div class="dc" id="d9">9</div>
+    </div>
+  </div>
+
+  <div id="conf-wrap">
+    <span class="slabel">Confidence</span>
+    <div id="cbars"></div>
+  </div>
+
+  <div id="status"><div id="sdot" class="idle"></div><span id="stxt">Ready — draw something</span></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
