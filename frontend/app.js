@@ -674,7 +674,8 @@ async function predict() {
   tc.fillStyle = "#000"; tc.fillRect(0,0,28,28); tc.drawImage(canvas, 0, 0, 28, 28);
   var px  = tc.getImageData(0,0,28,28).data;
   var inp = new Float32Array(28*28);
-  for (var i=0; i<28*28; i++) inp[i] = px[i*4]/255;
+  // Apply same normalization as training: (pixel - 0.1307) / 0.3081
+  for (var i=0; i<28*28; i++) inp[i] = (px[i*4]/255 - 0.1307) / 0.3081;
 
   try {
     var tensor  = new ort.Tensor("float32", inp, [1,1,28,28]);
@@ -694,21 +695,41 @@ async function predict() {
 
     resetLayers();
 
+    // Expand any collapsed layers first, wait for animation to finish before building planes
+    var expandDur = 0;
+    LD.forEach(function(def, idx) {
+      if (layerCollapsed[idx]) {
+        layerCollapsed[idx] = false;
+        spreadAnims = spreadAnims.filter(function(a) { return a.idx !== idx; });
+        spreadAnims.push({ idx: idx, from: layerSpread[idx], to: def.spreadFull, t0: performance.now(), dur: 400 });
+        expandDur = 450; // wait for animation + small buffer
+        var btn = document.getElementById("cbtn-" + idx);
+        if (btn) {
+          btn.classList.remove("collapsed");
+          btn.querySelector(".cico").textContent = "\u25bc";
+          btn.title = "Collapse " + def.label;
+        }
+      }
+    });
+
+    // Build activation planes only after expand animation is done
+    var pool1 = maxPool(conv1, 6, 24);
+    var pool2 = maxPool(conv2, 16, 8);
     var D = 120;
 
-    addSinglePlane(LD[0], input2tex(inp), 0x33ddff, 0);
-    buildActLayer(LD[1], function(c){ return activation2tex(conv1, c*24*24, 24); }, 6,  D);
-    var pool1 = maxPool(conv1, 6, 24);
-    buildActLayer(LD[2], function(c){ return activation2tex(pool1, c*12*12, 12); }, 6, D*2);
-    buildActLayer(LD[3], function(c){ return activation2tex(conv2, c*8*8,   8);  }, 16, D*3);
-    var pool2 = maxPool(conv2, 16, 8);
-    buildActLayer(LD[4], function(c){ return activation2tex(pool2, c*4*4,   4);  }, 16, D*4);
-    addSinglePlane(LD[5], bars2tex(probs), 0x33ddff, D*5);
-    addSinglePlane(LD[6], bars2tex(probs), 0x00ffaa, D*6);
-
     setTimeout(function() {
-      camTo = { pos: new THREE.Vector3(50, 60, 230), tgt: new THREE.Vector3(-20, 0, 0) };
-    }, D*3);
+      addSinglePlane(LD[0], input2tex(inp), 0x33ddff, 0);
+      buildActLayer(LD[1], function(c){ return activation2tex(conv1, c*24*24, 24); }, 6,  D);
+      buildActLayer(LD[2], function(c){ return activation2tex(pool1, c*12*12, 12); }, 6, D*2);
+      buildActLayer(LD[3], function(c){ return activation2tex(conv2, c*8*8,   8);  }, 16, D*3);
+      buildActLayer(LD[4], function(c){ return activation2tex(pool2, c*4*4,   4);  }, 16, D*4);
+      addSinglePlane(LD[5], bars2tex(probs), 0x33ddff, D*5);
+      addSinglePlane(LD[6], bars2tex(probs), 0x00ffaa, D*6);
+
+      setTimeout(function() {
+        camTo = { pos: new THREE.Vector3(50, 60, 230), tgt: new THREE.Vector3(-20, 0, 0) };
+      }, D*3);
+    }, expandDur);
 
     setStatus("idle", "Predicted: " + topIdx + "  (" + (probs[topIdx]*100).toFixed(1) + "%)");
   } catch(err) {
