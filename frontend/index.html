@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Digit Recognizer</title>
+</head>
+<body>
+
+    <h2>Draw a digit</h2>
+
+    <canvas id="canvas" width="280" height="280" style="border:1px solid black;"></canvas>
+
+    <br><br>
+
+    <button onclick="clearCanvas()">Clear</button>
+    <button onclick="predict()">Predict</button>
+
+    <h3>Conv1 Feature Maps</h3>
+    <div id="conv1"></div>
+
+    <h3>Conv2 Feature Maps</h3>
+    <div id="conv2"></div>
+
+    <h3 id="result">Prediction: </h3>
+
+    <!-- ONNX Runtime -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+
+    <!-- Your script -->
+    <script src="app.js"></script>
+
+</body>
+</html>
