@@ -2,30 +2,69 @@
 <html>
 <head>
     <title>Digit Recognizer</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+        }
+        canvas#canvas {
+            border: 2px solid #555;
+            cursor: crosshair;
+            display: block;
+        }
+        button {
+            margin-top: 10px;
+            margin-right: 8px;
+            padding: 8px 20px;
+            font-size: 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #4a4a8a;
+            color: white;
+        }
+        button:hover { background: #6666bb; }
+        #result { color: #7ef7a0; }
+        #conv1, #conv2 { display: flex; flex-wrap: wrap; }
+        #three-container {
+            width: 900px;
+            height: 500px;
+            border: 1px solid #333;
+            margin-top: 10px;
+        }
+    </style>
 </head>
 <body>
 
     <h2>Draw a digit</h2>
 
-    <canvas id="canvas" width="280" height="280" style="border:1px solid black;"></canvas>
+    <canvas id="canvas" width="280" height="280"></canvas>
 
-    <br><br>
-
+    <br>
     <button onclick="clearCanvas()">Clear</button>
     <button onclick="predict()">Predict</button>
 
-    <h3>Conv1 Feature Maps</h3>
+    <h3 id="result">Prediction: —</h3>
+
+    <h3>Conv1 Feature Maps (6 channels)</h3>
     <div id="conv1"></div>
 
-    <h3>Conv2 Feature Maps</h3>
+    <h3>Conv2 Feature Maps (16 channels)</h3>
     <div id="conv2"></div>
 
-    <h3 id="result">Prediction: </h3>
+    <h3>3D Neural Network Visualization</h3>
+    <p style="font-size:12px; color:#aaa;">Click and drag to orbit · Scroll to zoom</p>
+    <div id="three-container"></div>
 
+    <!-- Three.js r128 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for r128 — attaches as THREE.OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <!-- ONNX Runtime -->
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 
-    <!-- Your script -->
     <script src="app.js"></script>
 
 </body>
