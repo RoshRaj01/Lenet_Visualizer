@@ -195,7 +195,7 @@ function buildSkeleton() {
   LD.forEach(function(def, di) {
     var g     = new THREE.Group();
     var sp    = layerSpread[di];
-    var count = Math.min(def.ch, 8);
+    var count = Math.min(def.ch, 16);
     var ratio = def.spreadFull > 0 ? sp / def.spreadFull : 1;
 
     for (var i = 0; i < count; i++) {
@@ -275,7 +275,9 @@ function computeLabelY(di) {
 function getLayerNodes(di, side) {
   var def   = LD[di];
   var sp    = layerSpread[di];
-  var count = Math.min(def.ch, 8);
+  // Match the actual rendered plane count exactly — buildActLayer uses min(ch,16), skeleton uses min(ch,8)
+  // For connection lines we want one node per rendered plane, so use min(ch,16)
+  var count = Math.min(def.ch, 16);
   var ratio = def.spreadFull > 0 ? sp / def.spreadFull : 1;
   var nodes = [];
 
@@ -465,7 +467,7 @@ function rebuildSkeletonPositions() {
     var g     = skeletonGroups[di];
     if (!g) return;
     var sp    = layerSpread[di];
-    var count = Math.min(def.ch, 8);
+    var count = Math.min(def.ch, 16);
     var ratio = def.spreadFull > 0 ? sp / def.spreadFull : 1;
     var meshes = g.children.filter(function(c) { return c.type === "Mesh"; });
     var edges  = g.children.filter(function(c) { return c.type === "LineSegments"; });
